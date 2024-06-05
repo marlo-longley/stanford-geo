@@ -27,6 +27,20 @@ RSpec.describe Stanford::Geo::Coordinate do
     end
   end
 
+  describe "#from_bbox" do
+    it "is an invalid instance for non-numeric data" do
+      expect(described_class.from_bbox("a", "b", "c", "d")).not_to be_valid
+    end
+
+    it "is an invalid instance for invalid data" do
+      expect(described_class.from_bbox(-196_000.0, 286_000.0, 438_000.0, 230_000.0)).not_to be_valid
+    end
+
+    it "is a valid instance for valid data" do
+      expect(described_class.from_bbox(-180, -90, 180, 90)).to be_valid
+    end
+  end
+
   context "#as_bbox" do
     {
       %((W 123°23ʹ16ʺ--W 122°31ʹ22ʺ/N 39°23ʹ57ʺ--N 38°17ʹ53ʺ)) =>

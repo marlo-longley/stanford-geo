@@ -12,8 +12,19 @@ module Stanford
 
       attr_reader :value
 
-      def initialize(value)
+      def self.from_bbox(min_x, min_y, max_x, max_y)
+        bounds = begin
+          { min_x: Float(min_x), min_y: Float(min_y), max_x: Float(max_x), max_y: Float(max_y) }
+        rescue ArgumentError
+          {}
+        end
+
+        new(nil, bounds: bounds)
+      end
+
+      def initialize(value, bounds: nil)
         @value = value
+        @bounds = bounds
       end
 
       # @return [String] the coordinate in WKT/CQL ENVELOPE representation
@@ -54,11 +65,6 @@ module Stanford
           min_y, max_y = matches["lng"].split(/-+/).map { |y| coord_to_decimal(y) }.minmax
           { min_x: min_x, min_y: min_y, max_x: max_x, max_y: max_y }
         end
-      end
-
-      # @deprecated see GeoUtils
-      def coord
-        cleaner_coordinate(value)
       end
 
       # @param [String] val Coordinates value
