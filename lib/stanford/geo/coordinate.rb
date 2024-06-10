@@ -10,21 +10,47 @@ module Stanford
         /^\s*(?<dir>[NESW])\s*(?<deg>\d+(?:[.]\d+)?)\s*$/
       )
 
-      attr_reader :value
+      attr_reader :bounds
 
-      def self.from_bbox(min_x, min_y, max_x, max_y)
-        bounds = begin
-          { min_x: Float(min_x), min_y: Float(min_y), max_x: Float(max_x), max_y: Float(max_y) }
-        rescue ArgumentError
-          {}
-        end
+      # @param [String] point coordinate point in degrees notation
+      # @return [Float] converted value in decimal notation
+      def self.coord_to_decimal(point)
+        match = COORD_TO_DECIMAL_REGEX.match(point)
+        return Float::INFINITY unless match
 
-        new(nil, bounds: bounds)
+        dec = match["deg"].to_f
+        dec += match["min"].to_f / 60
+        dec += match["sec"].to_f / 60 / 60
+        dec = -1 * dec if match["dir"] == "W" || match["dir"] == "S"
+        dec
       end
 
-      def initialize(value, bounds: nil)
-        @value = value
-        @bounds = bounds
+      # @param [String] val Coordinates value
+      # @return [String] cleaned value (strips parens and period), or the original value
+      def self.cleaner_coordinate(value)
+        matches = value.match(/^\(?([^)]+)\)?\.?$/)
+        matches ? matches[1] : value
+      end
+
+      def self.parse_bounds(value)
+        matches = cleaner_coordinate(value).match %r{\A(?<lat>[EW].+-+.+)\s*/\s*(?<lng>[NS].+-+.+)\Z}
+        return { min_x: nil, min_y: nil, max_x: nil, max_y: nil } unless matches
+
+        min_x, max_x = matches["lat"].split(/-+/).map { |x| coord_to_decimal(x) }.minmax
+        min_y, max_y = matches["lng"].split(/-+/).map { |y| coord_to_decimal(y) }.minmax
+        { min_x: min_x, min_y: min_y, max_x: max_x, max_y: max_y }
+      end
+
+      def self.parse(value)
+        new(**parse_bounds(value))
+      end
+
+      def initialize(min_x:, min_y:, max_x:, max_y:)
+        @bounds = begin
+          { min_x: Float(min_x), min_y: Float(min_y), max_x: Float(max_x), max_y: Float(max_y) }
+        rescue TypeError, ArgumentError
+          {}
+        end
       end
 
       # @return [String] the coordinate in WKT/CQL ENVELOPE representation
@@ -52,39 +78,6 @@ module Stanford
           range_x.include?(bounds[:max_x]) &&
           range_y.include?(bounds[:min_y]) &&
           range_y.include?(bounds[:max_y])
-      end
-
-      private
-
-      def bounds
-        @bounds ||= begin
-          matches = cleaner_coordinate(value).match %r{\A(?<lat>[EW].+-+.+)\s*/\s*(?<lng>[NS].+-+.+)\Z}
-          return {} unless matches
-
-          min_x, max_x = matches["lat"].split(/-+/).map { |x| coord_to_decimal(x) }.minmax
-          min_y, max_y = matches["lng"].split(/-+/).map { |y| coord_to_decimal(y) }.minmax
-          { min_x: min_x, min_y: min_y, max_x: max_x, max_y: max_y }
-        end
-      end
-
-      # @param [String] val Coordinates value
-      # @return [String] cleaned value (strips parens and period), or the original value
-      def cleaner_coordinate(val)
-        matches = val.match(/^\(?([^)]+)\)?\.?$/)
-        matches ? matches[1] : val
-      end
-
-      # @param [String] point coordinate point in degrees notation
-      # @return [Float] converted value in decimal notation
-      def coord_to_decimal(point)
-        match = COORD_TO_DECIMAL_REGEX.match(point)
-        return Float::INFINITY unless match
-
-        dec = match["deg"].to_f
-        dec += match["min"].to_f / 60
-        dec += match["sec"].to_f / 60 / 60
-        dec = -1 * dec if match["dir"] == "W" || match["dir"] == "S"
-        dec
       end
     end
   end
