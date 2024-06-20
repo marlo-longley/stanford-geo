@@ -3,27 +3,41 @@
 RSpec.describe Stanford::Geo::Coordinate do
   describe "#valid" do
     it "is valid for well-formed coordinates" do
-      expect(described_class.new("W 123°23ʹ16ʺ--W 122°31ʹ22ʺ/N 39°23ʹ57ʺ--N 38°17ʹ53ʺ")).to be_valid
+      expect(described_class.parse("W 123°23ʹ16ʺ--W 122°31ʹ22ʺ/N 39°23ʹ57ʺ--N 38°17ʹ53ʺ")).to be_valid
     end
 
     it "rejects out-of-bounds coordinates" do
-      expect(described_class.new("W80°--E100°/N487°--S42°")).not_to be_valid
+      expect(described_class.parse("W80°--E100°/N487°--S42°")).not_to be_valid
     end
 
     it "rejects malformed coordinates" do
-      expect(described_class.new("(E29°--E35/°S12°--S16°).")).not_to be_valid
+      expect(described_class.parse("(E29°--E35/°S12°--S16°).")).not_to be_valid
     end
   end
 
   describe "#as_bbox" do
     it "is nil for invalid data" do
-      expect(described_class.new("x").as_bbox).to eq nil
+      expect(described_class.parse("x").as_bbox).to eq nil
     end
   end
 
   describe "#as_envelope" do
     it "is nil for invalid data" do
-      expect(described_class.new("x").as_envelope).to eq nil
+      expect(described_class.parse("x").as_envelope).to eq nil
+    end
+  end
+
+  describe "#new" do
+    it "is an invalid instance for non-numeric data" do
+      expect(described_class.new(min_x: "a", min_y: "b", max_x: "c", max_y: "d")).not_to be_valid
+    end
+
+    it "is an invalid instance for invalid data" do
+      expect(described_class.new(min_x: -1960.0, min_y: 2860.0, max_x: 4380.0, max_y: 2300.0)).not_to be_valid
+    end
+
+    it "is a valid instance for valid data" do
+      expect(described_class.new(min_x: -180, min_y: -90, max_x: 180, max_y: 90)).to be_valid
     end
   end
 
@@ -45,7 +59,7 @@ RSpec.describe Stanford::Geo::Coordinate do
         "-30.6 -42.4 68.1 41.7"
     }.each do |value, expected|
       describe "parsing" do
-        let(:subject) { described_class.new(value) }
+        let(:subject) { described_class.parse(value) }
 
         it "transforms into the right bbox" do
           expect(subject.as_bbox).to eq expected
@@ -70,7 +84,7 @@ RSpec.describe Stanford::Geo::Coordinate do
         "ENVELOPE(-0.0, -0.0, -90.0, -90.0)" # one dash, two dashes, three dashes.. what's the difference?
     }.each do |value, expected|
       describe "parsing" do
-        let(:subject) { described_class.new(value) }
+        let(:subject) { described_class.parse(value) }
 
         it "transforms into the right envelope" do
           expect(subject.as_envelope).to eq expected
